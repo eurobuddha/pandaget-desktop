@@ -77,9 +77,44 @@ jobs:
             echo "notarization: APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID not all set — skipped"
           fi
 
+      # Windows code signing via Azure Trusted Signing (dormant until the secrets exist — see
+      # WINDOWS-SIGNING.md). We sign the built NSIS installer .exe (the downloaded artifact
+      # SmartScreen judges). No cert = no HAS_AZ = the sign step is skipped and the .exe ships
+      # unsigned exactly as today.
+      - name: Configure win signing (when the secrets exist)
+        if: matrix.platform == 'win'
+        shell: bash
+        env:
+          AZ_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          if [ -n "$AZ_ID" ]; then
+            echo "HAS_AZ=true" >> "$GITHUB_ENV"
+            echo "win signing: Azure Trusted Signing configured"
+          else
+            echo "win signing: no AZURE_CLIENT_ID secret — unsigned .exe"
+          fi
+
       - name: Build installer
         shell: bash
         run: npx electron-builder ${{ matrix.ebflag }} --publish never
+
+      - name: Sign Windows installer (Azure Trusted Signing)
+        if: matrix.platform == 'win' && env.HAS_AZ == 'true'
+        uses: azure/trusted-signing-action@v0
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        with:
+          endpoint: ${{ secrets.AZURE_CODESIGN_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_CODESIGN_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_CODESIGN_PROFILE }}
+          files-folder: ${{ github.workspace }}\dist
+          files-folder-filter: exe
+          files-folder-recurse: false
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Verify signature + notarization (mac)
         if: matrix.platform == 'mac' && env.CERT != ''
