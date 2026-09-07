@@ -342,7 +342,25 @@ window.pandaget.onProgress(function (u) {
   }
 });
 
+// ─── Refresh — re-fetch the catalog on demand ────────────────────────────────
+function refreshCatalog() {
+  var btn = el("refreshBtn");
+  if (btn) btn.classList.add("spin");
+  window.pandaget.catalog().then(function (res) {
+    if (btn) btn.classList.remove("spin");
+    if (res && res.ok) {
+      CATALOG = res;
+      if ((location.hash || "") !== "") location.hash = "";   // back to list (fires route → render)
+      else showList();
+      toast("Catalog refreshed.");
+    } else {
+      toast("Couldn't refresh — " + ((res && res.error) || "network error"));
+    }
+  }).catch(function () { if (btn) btn.classList.remove("spin"); toast("Couldn't refresh."); });
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 el("phoneLink").onclick = function () { window.pandaget.openExternal(PANDAAPPS_URL); };
+el("refreshBtn").onclick = refreshCatalog;
 window.addEventListener("hashchange", route);
 window.pandaget.platform().then(function (p) { PLATFORM = p || "Mac"; load(); });

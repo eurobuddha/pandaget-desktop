@@ -29,6 +29,14 @@ button{font-family:inherit}
 }
 .bar .dtitle{font-size:17px; font-weight:700; color:var(--text);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.bar .refresh{
+  flex:0 0 auto; background:var(--panel2); color:var(--accent);
+  border:1.5px solid var(--border); border-radius:7px; width:36px; height:36px;
+  font-size:18px; line-height:1; cursor:pointer; padding:0;
+}
+.bar .refresh:hover{border-color:var(--accent)}
+.bar .refresh.spin{animation:pgspin .7s linear infinite; pointer-events:none; opacity:.7}
+@keyframes pgspin{to{transform:rotate(360deg)}}
 
 .pad{padding:14px}
 
