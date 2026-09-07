@@ -47,6 +47,7 @@ function createWindow() {
 
 // ---- IPC ----
 ipcMain.handle("pg:platform", () => platformName());
+ipcMain.handle("pg:appVersion", () => app.getVersion());
 ipcMain.handle("pg:catalog", async () => {
   try { return { ok: true, ...(await fetchCatalog()) }; }
   catch (e) { return { ok: false, error: (e && e.message) || String(e) }; }

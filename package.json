@@ -1,7 +1,7 @@
 {
   "name": "pandaget-desktop",
   "productName": "PandaGet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "PandaGet Desktop — a download-only store for the Minima family's desktop apps. Detects your OS, lists the installers for it, verifies each download's SHA-256, and reveals it for you to install. Installs nothing itself.",
   "author": "eurobuddha",
   "license": "MIT",

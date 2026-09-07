@@ -22,6 +22,8 @@ function groupFor(item) {
 var PANDAAPPS_URL = "https://github.com/eurobuddha/minima-core-android-pandaapps/releases/latest";
 
 var PLATFORM = "Mac";        // "Mac" | "Windows" | "Linux" — matches the catalog `source`
+var APP_VERSION = "";        // this app's own running version (from app.getVersion)
+var SELF_PKG = "";           // catalog packageId of THIS app on this OS
 var CATALOG = null;          // { apps:[...], disclaimer }
 var expanded = {};           // detail key -> show-all-versions
 var dl = {};                 // packageId -> { phase, percent, savedPath, error }
@@ -57,6 +59,27 @@ function desktopItems() {
   return CATALOG.apps.filter(function (a) {
     return String(a.source || "").trim().toLowerCase() === p;
   });
+}
+
+// semver-ish compare on the numeric dotted part: 1 if a>b, -1 if a<b, 0 if equal.
+function cmpVersion(a, b) {
+  var pa = String(a || "").split(/[.-]/).map(function (x) { return parseInt(x, 10); });
+  var pb = String(b || "").split(/[.-]/).map(function (x) { return parseInt(x, 10); });
+  for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+    var x = isFinite(pa[i]) ? pa[i] : 0, y = isFinite(pb[i]) ? pb[i] : 0;
+    if (x !== y) return x > y ? 1 : -1;
+  }
+  return 0;
+}
+// The catalog row for THIS running app (its own OS build), and whether it's newer than us.
+function selfRow() {
+  var items = desktopItems();
+  for (var i = 0; i < items.length; i++) if (items[i].packageId === SELF_PKG) return { it: items[i], key: i };
+  return null;
+}
+function selfUpdate() {
+  var s = selfRow();
+  return (s && APP_VERSION && cmpVersion(s.it.version, APP_VERSION) > 0) ? s : null;
 }
 
 function descText(d) { if (Array.isArray(d)) d = d.join(" "); return d ? String(d) : ""; }
@@ -114,8 +137,17 @@ function render() {
   host.innerHTML = "";
   if (!items.length) { showError("No desktop apps for " + PLATFORM + " in the catalog yet."); return; }
 
+  // A pinned UPDATES section when a newer PandaGet Desktop than the one running is in the catalog.
+  var upd = selfUpdate();
+  if (upd) {
+    var uh = document.createElement("div"); uh.className = "ghead"; uh.textContent = "UPDATES · 1";
+    host.appendChild(uh);
+    host.appendChild(rowFor(upd.it, upd.key));
+  }
+
   var byGroup = {};
   items.forEach(function (it, i) {
+    if (upd && i === upd.key) return;   // already shown in UPDATES, don't duplicate
     var g = groupFor(it);
     (byGroup[g] = byGroup[g] || []).push({ it: it, key: i });
   });
@@ -152,8 +184,13 @@ function rowFor(item, key) {
   mid.appendChild(nm);
   var st = document.createElement("div"); st.className = "state";
   var d = dl[item.packageId];
+  var isSelf = item.packageId === SELF_PKG && APP_VERSION;
   if (d && d.phase === "saved") { st.className = "state saved"; st.textContent = "Saved to Downloads"; }
   else if (d && d.phase === "downloading") { st.textContent = "Downloading… " + (d.percent || 0) + "%"; }
+  else if (isSelf && cmpVersion(item.version, APP_VERSION) > 0) {
+    st.className = "state upd"; st.textContent = "Update available → v" + item.version + " (you have v" + APP_VERSION + ")";
+  }
+  else if (isSelf) { st.className = "state saved"; st.textContent = "Installed · v" + APP_VERSION + " · up to date"; }
   else { st.textContent = "v" + (item.version || "?") + "  ·  " + (item.source || "Desktop"); }
   mid.appendChild(st);
   r.appendChild(mid);
@@ -272,18 +309,28 @@ function actionArea(item, key) {
     redl.onclick = function () { startDownload(item, key); };
     wrap.appendChild(redl);
     var s = document.createElement("div"); s.className = "stateline saved";
-    s.textContent = "Saved & verified — open it to install. PandaGet installs nothing itself.";
+    s.textContent = (item.packageId === SELF_PKG)
+      ? "Saved & verified — open it and replace PandaGet to finish updating."
+      : "Saved & verified — open it to install. PandaGet installs nothing itself.";
     wrap.appendChild(s);
     return wrap;
   }
 
-  var dbtn = document.createElement("button"); dbtn.className = "abtn"; dbtn.textContent = "Download for " + PLATFORM;
+  var isSelf = item.packageId === SELF_PKG && APP_VERSION;
+  var isUpd = isSelf && cmpVersion(item.version, APP_VERSION) > 0;
+  var dbtn = document.createElement("button"); dbtn.className = "abtn";
+  dbtn.textContent = isUpd ? ("Update to v" + item.version) : (isSelf ? ("Re-download v" + item.version) : ("Download for " + PLATFORM));
   dbtn.onclick = function () { startDownload(item, key); };
   wrap.appendChild(dbtn);
   var line = document.createElement("div"); line.className = "stateline";
-  line.textContent = item.sha256
-    ? "Downloads the " + kind + " to your Downloads folder — verified against its SHA-256, then revealed."
-    : "Downloads the " + kind + " to your Downloads folder, then reveals it.";
+  if (isUpd) {
+    line.textContent = "You have v" + APP_VERSION + ". Downloads the new " + kind
+      + " (verified against its SHA-256), then reveals it — open it and replace PandaGet to finish updating.";
+  } else {
+    line.textContent = item.sha256
+      ? "Downloads the " + kind + " to your Downloads folder — verified against its SHA-256, then revealed."
+      : "Downloads the " + kind + " to your Downloads folder, then reveals it.";
+  }
   wrap.appendChild(line);
   if (d.phase === "error" && d.error) {
     var err = document.createElement("div"); err.className = "stateline err"; err.textContent = d.error;
@@ -363,4 +410,9 @@ function refreshCatalog() {
 el("phoneLink").onclick = function () { window.pandaget.openExternal(PANDAAPPS_URL); };
 el("refreshBtn").onclick = refreshCatalog;
 window.addEventListener("hashchange", route);
-window.pandaget.platform().then(function (p) { PLATFORM = p || "Mac"; load(); });
+Promise.all([window.pandaget.platform(), window.pandaget.appVersion()]).then(function (r) {
+  PLATFORM = r[0] || "Mac";
+  APP_VERSION = r[1] || "";
+  SELF_PKG = "com.eurobuddha.pandaget.desktop." + (PLATFORM === "Mac" ? "mac" : PLATFORM === "Windows" ? "win" : "linux");
+  load();
+});

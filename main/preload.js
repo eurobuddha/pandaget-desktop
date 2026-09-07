@@ -7,6 +7,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("pandaget", {
   platform: () => ipcRenderer.invoke("pg:platform"),
+  appVersion: () => ipcRenderer.invoke("pg:appVersion"),
   catalog: () => ipcRenderer.invoke("pg:catalog"),
   download: (row) => ipcRenderer.invoke("pg:download", row),
   reveal: (path) => ipcRenderer.invoke("pg:reveal", path),
