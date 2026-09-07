@@ -1,0 +1,108 @@
+name: Build desktop (mac / win / linux)
+
+# Manual runs produce downloadable artifacts; pushing a tag like v0.1.0 also attaches the
+# installers to a GitHub Release. Each runner builds its OWN platform natively. PandaGet bundles
+# no Java/JRE and no framework build step — the renderer is plain files — so it's just npm ci +
+# electron-builder.
+#
+# SIGNING + NOTARIZATION (wired; dormant until the repo secrets exist — without them the mac
+# build is unsigned and Gatekeeper wants right-click → Open. The signed mac DMG is built locally
+# and uploaded over CI's per the workspace desktop-signing rule):
+#   MAC_CERT_P12        base64 of the "Developer ID Application" certificate exported as .p12
+#   MAC_CERT_PASSWORD   the .p12 password
+#   APPLE_ID            the Apple ID that owns the Developer Program membership
+#   APPLE_APP_SPECIFIC_PASSWORD   an app-specific password from appleid.apple.com
+#   APPLE_TEAM_ID       the 10-character Team ID (Z4JD286WF4)
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required for the tag build to create the GitHub Release
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: mac
+            ebflag: --mac --arm64
+          - os: windows-latest
+            platform: win
+            ebflag: --win
+          - os: ubuntu-latest
+            platform: linux
+            ebflag: --linux
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci
+
+      # Export the signing/notarization env ONLY when the secrets exist: an empty CSC_LINK is not
+      # "unset" to electron-builder — it is a path, and the build dies with "not a file".
+      - name: Configure mac signing (when the secrets exist)
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          P12: ${{ secrets.MAC_CERT_P12 }}
+          P12_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          A_ID: ${{ secrets.APPLE_ID }}
+          A_PW: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          A_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$P12" ]; then
+            echo "CSC_LINK=$(echo "$P12" | tr -d '\n\r ')" >> "$GITHUB_ENV"
+            echo "CSC_KEY_PASSWORD=$P12_PASSWORD" >> "$GITHUB_ENV"
+            echo "signing: Developer ID certificate configured"
+          else
+            echo "signing: no MAC_CERT_P12 secret — unsigned build"
+          fi
+          if [ -n "$A_ID" ] && [ -n "$A_PW" ] && [ -n "$A_TEAM" ]; then
+            echo "APPLE_ID=$A_ID" >> "$GITHUB_ENV"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=$A_PW" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=$A_TEAM" >> "$GITHUB_ENV"
+            echo "notarization: credentials configured"
+          else
+            echo "notarization: APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID not all set — skipped"
+          fi
+
+      - name: Build installer
+        shell: bash
+        run: npx electron-builder ${{ matrix.ebflag }} --publish never
+
+      - name: Verify signature + notarization (mac)
+        if: matrix.platform == 'mac' && env.CERT != ''
+        env:
+          CERT: ${{ secrets.MAC_CERT_P12 }}
+        run: scripts/verify-mac.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pandaget-desktop-${{ matrix.platform }}
+          path: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage
+          if-no-files-found: warn
+
+      - name: Attach to release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PandaGet Desktop ${{ github.ref_name }}
+          files: |
+            dist/*.dmg
+            dist/*.exe
+            dist/*.AppImage

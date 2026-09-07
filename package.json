@@ -1,0 +1,76 @@
+{
+  "name": "pandaget-desktop",
+  "productName": "PandaGet",
+  "version": "0.1.0",
+  "description": "PandaGet Desktop — a download-only store for the Minima family's desktop apps. Detects your OS, lists the installers for it, verifies each download's SHA-256, and reveals it for you to install. Installs nothing itself.",
+  "author": "eurobuddha",
+  "license": "MIT",
+  "main": "main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac --arm64",
+    "dist:mac:signed": "APPLE_KEYCHAIN_PROFILE=minimadesk npm run dist:mac && scripts/notarize-dmg.sh && scripts/verify-mac.sh",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.eurobuddha.pandaget.desktop",
+    "productName": "PandaGet",
+    "files": [
+      "main/**",
+      "renderer/**",
+      "!**/*.map"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.icns",
+      "identity": "Developer ID Application",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "notarize": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "maintainer": "eurobuddha <eurobuddha@gmail.com>",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}

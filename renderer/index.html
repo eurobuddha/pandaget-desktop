@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://raw.githubusercontent.com https://ipfs.eurobuddha.com https://ipfs.io; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<title>PandaGet</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="drag"></div>
+<div class="wrap">
+
+  <div id="listView">
+    <div class="bar">
+      <div class="titles">
+        <h1>PandaGet</h1>
+        <div class="sub" id="subtitle">Desktop apps for the Minima network.</div>
+      </div>
+    </div>
+
+    <div class="pad">
+      <div class="disclaimer" id="disclaimer">
+        All apps here are in active development — use at your own risk. They are experimental software
+        provided as is, without warranty of any kind. They interact with a live blockchain and real funds;
+        back up your seed, test with small amounts, and only risk what you can afford to lose. Nothing here
+        is financial advice.
+      </div>
+      <div class="note" id="note"></div>
+      <div id="loading">Loading…</div>
+      <div id="error"></div>
+      <div id="groups"></div>
+      <footer>
+        PandaGet Desktop · a download-only store for Minima desktop apps · built by eurobuddha<br>
+        On your phone? <a id="phoneLink">Get PandaApps ↗</a>
+      </footer>
+    </div>
+  </div>
+
+  <div id="detailView" style="display:none">
+    <div class="bar">
+      <button class="back" id="backBtn">‹</button>
+      <div class="dtitle" id="dtitle"></div>
+    </div>
+    <div class="dpad" id="detailBody"></div>
+  </div>
+
+</div>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
