@@ -31,6 +31,17 @@ keychain and the `minimadesk` notarytool keychain profile — the same setup as 
 CI (`.github/workflows/desktop-build.yml`) builds all three platforms on a `v*` tag and signs mac
 when the repo secrets exist; otherwise the locally-signed mac DMG is uploaded over CI's.
 
+## Release (one command, all three platforms)
+After bumping `package.json` and `npm run dist:mac:signed`, run:
+```
+scripts/release-desktop.sh <ver> "release notes"
+```
+It tags `v<ver>`, waits for the CI matrix (mac/win/linux), uploads the signed Mac DMG over CI's,
+then bumps the three PandaGet Desktop rows of the PandaApps catalog (`../minima-core-apks`, via its
+`publish-app.py`) and pushes — exiting non-zero unless all three rows end up at `<ver>`. PandaGet
+Desktop self-updates from that catalog, so there is no separate update feed to maintain. Same family
+rule as `minimacore-desktop` / `minimaDesk`'s `release-desktop.sh`.
+
 ## Distribution
 Installers are GitHub Release assets on this repo; the three catalog rows (PandaGet Desktop
 Mac/Windows/Linux) in `desktop/minima-core-apks/apks.json` point at them, each with a SHA-256.
