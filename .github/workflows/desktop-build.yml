@@ -49,6 +49,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Test download integrity
+        run: npm test
+
       # Export the signing/notarization env ONLY when the secrets exist: an empty CSC_LINK is not
       # "unset" to electron-builder — it is a path, and the build dies with "not a file".
       - name: Configure mac signing (when the secrets exist)

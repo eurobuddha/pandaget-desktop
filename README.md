@@ -17,6 +17,12 @@ same reason to exist (a store that can't install anything can't misbehave).
 - The renderer (`renderer/`) is plain HTML/CSS/JS, ported from the family's web store front, with
   the PandaApps theme, grouping, and glowing "Recommended" card.
 
+## Download integrity
+
+Version 0.1.3 requires a valid catalog SHA-256 before downloading. Transfers targeting the same
+filename cannot overlap; failures preserve an existing installer and allow retry. The stream
+respects disk backpressure. `npm test` checks these cases without contacting a live server.
+
 ## Build
 ```
 npm ci

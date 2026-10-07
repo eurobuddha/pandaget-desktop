@@ -1,7 +1,7 @@
 {
   "name": "pandaget-desktop",
   "productName": "PandaGet",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "PandaGet Desktop — a download-only store for the Minima family's desktop apps. Detects your OS, lists the installers for it, verifies each download's SHA-256, and reveals it for you to install. Installs nothing itself.",
   "author": "eurobuddha",
   "license": "MIT",
@@ -11,7 +11,8 @@
     "dist:mac": "electron-builder --mac --arm64",
     "dist:mac:signed": "APPLE_KEYCHAIN_PROFILE=minimadesk npm run dist:mac && scripts/notarize-dmg.sh && scripts/verify-mac.sh",
     "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "test": "node --test scripts/download-test.cjs"
   },
   "devDependencies": {
     "electron": "^33.0.0",
