@@ -6,7 +6,7 @@
 #   1. the signed+notarized Mac DMG must exist (npm run dist:mac:signed)
 #   2. tag v<ver> and push it: CI builds mac (unsigned), win (NSIS x64) and linux (AppImage x64)
 #   3. wait for that CI run, refuse to go on if any platform failed
-#   4. upload the LOCAL signed DMG over CI's unsigned one
+#   4. upload the LOCAL signed DMG alongside CI artifacts
 #   5. bump the three PandaGet Desktop rows of the PandaApps catalog (../minima-core-apks) from the
 #      release assets - publish-app.py downloads + hashes each, so a missing win/linux asset aborts;
 #      commit + push (the catalog's pre-push hook runs check.py, which downloads and verifies every
@@ -35,8 +35,22 @@ done
 gh run watch "$RUN" -R "$REPO" --exit-status > /dev/null 2>&1 || {
   echo "CI run $RUN did not succeed on every platform:"; gh run view "$RUN" -R "$REPO" --json jobs --jq '.jobs[] | "  \(.name): \(.conclusion)"'; exit 1; }
 gh run view "$RUN" -R "$REPO" --json jobs --jq '.jobs[] | "  \(.name): \(.conclusion)"'
-echo "== mac (signed DMG over CI's unsigned one)"
-gh release upload "v$VER" "$DMG" -R "$REPO" --clobber
+# Keep the CI artifact and publish the notarized installer under its own immutable name.
+SIGNED_DMG="${DMG%.dmg}-notarized.dmg"
+if [ -e "$SIGNED_DMG" ]; then
+  cmp -s "$DMG" "$SIGNED_DMG" || { echo "conflicting local signed artifact: $SIGNED_DMG"; exit 1; }
+else
+  cp -p "$DMG" "$SIGNED_DMG"
+fi
+DMG="$SIGNED_DMG"
+SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+echo "== mac (signed DMG alongside CI artifacts)"
+  REMOTE_SHA=$(gh api "repos/$REPO/releases/tags/v$VER" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next((a.get("digest") or "unknown" for a in d["assets"] if a["name"]==sys.argv[1]), ""))' "$(basename "$DMG")")
+  case "$REMOTE_SHA" in
+    "") gh release upload "v$VER" "$DMG" -R "$REPO" ;;
+    "sha256:$SHA") echo "identical notarized installer already published" ;;
+    *) echo "conflicting published artifact; refusing to replace it"; exit 1 ;;
+  esac
 echo "== PandaApps catalog rows (PandaGet Desktop mac / win / linux)"
 STORE="$(cd .. && pwd)/minima-core-apks"
 [ -d "$STORE" ] || { echo "!! $STORE not found - update the three rows by hand (scripts/publish-app.py)"; exit 1; }
